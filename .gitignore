@@ -1,2 +1,4 @@
 .idea/
 *.iml
+infrastructure/scripts/
+infrastructure/test-deployment/

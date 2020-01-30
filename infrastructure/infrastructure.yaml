@@ -1,0 +1,251 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  EksClusterName:
+    Type: String
+    Description: The of the EKS cluster to be created
+    Default: "capstone-project-cluster"
+  EksRoleName:
+    Type: String
+    Description: The role to be created for the EKS cluster
+    Default: "capstone-project-eks-role"
+  EksNodesRoleName:
+    Type: String
+    Description: The role to be created for the EKS cluster worker nodes
+    Default: "capstone-project-eks-nodegroup-role"
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # ---------------------------------------------------------------------------
+  #region EKS
+  EKS:
+    Type: AWS::EKS::Cluster
+    DependsOn: EksRole
+    Properties:
+      Name: !Ref EksClusterName
+      ResourcesVpcConfig:
+        # SecurityGroupIds:
+          # Automatically created by EKS
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+          - !Ref PublicSubnet1
+          - !Ref PublicSubnet2
+      RoleArn: !GetAtt EksRole.Arn
+      Version: 1.14
+
+  EksRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref EksRoleName
+      Description: Allows EKS to manage clusters
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::aws:policy/AmazonEKSServicePolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - eks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+
+  NodeGroup:
+    Type: AWS::EKS::Nodegroup
+    DependsOn: NodeRole
+    Properties:
+      AmiType: AL2_x86_64
+      ClusterName: !Ref EKS
+      InstanceTypes:
+        - t3a.medium
+      NodeRole: !GetAtt NodeRole.Arn
+      ScalingConfig:
+        DesiredSize: 2
+        MinSize: 2
+        MaxSize: 2
+      Subnets:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  NodeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref EksNodesRoleName
+      Description: Needed for the EKS worker nodes
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+  # endregion - EKS
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  #region Private Subnet 1
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/18
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+      # Signals to EKS to use this subnet for internal load balancers
+      - Key: kubernetes.io/role/internal-elb
+        Value: 1
+
+  NatGateway1EIP:
+    Type: AWS::EC2::EIP
+
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      AllocationId: !GetAtt NatGateway1EIP.AllocationId
+
+  PrivateSubnet1RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateSubnet1DefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateSubnet1RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateSubnet1RouteTable
+  # endregion - Private Subnet 1
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  #region Private Subnet 2
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.64.0/18
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        # Signals to EKS to use this subnet for internal load balancers
+        - Key: kubernetes.io/role/internal-elb
+          Value: 1
+
+  NatGateway2EIP:
+    Type: AWS::EC2::EIP
+
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      AllocationId: !GetAtt NatGateway2EIP.AllocationId
+
+  PrivateSubnet2RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateSubnet2DefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateSubnet2RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateSubnet2RouteTable
+  # endregion Private Subnet 2
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # region Public Subnets
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.128.0/18
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        # Signals to EKS to use this subnet for external load balancers
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.192.0/18
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        # Signals to EKS to use this subnet for external load balancers
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  PublicSubnetsDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicSubnetsRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetsRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicSubnetsRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicSubnetsRouteTable
+  # endregion Public Subnets
+  # ---------------------------------------------------------------------------
+
+
+Outputs:
+
+  ClusterName:
+    Description: The name of the EKS Kubernetes cluster.
+    Value: !Ref EKS
+
+  ClusterEndpoint:
+    Description: The endpoint for the Kubernetes API server of the cluster.
+    Value: !GetAtt EKS.Endpoint
