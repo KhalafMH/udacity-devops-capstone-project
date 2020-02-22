@@ -1,0 +1,34 @@
+cluster:
+  provider: eks
+  clusterName: capstone-project-cluster
+  environmentGitOwner: khalafmh
+environments:
+  - key: dev
+  - key: staging
+  - key: production
+ingress:
+  domain: capstone.mahdi.cloud
+  externalDNS: true
+  ignoreLoadBalancer: true
+  namespaceSubDomain: -jx.
+  tls:
+    email: "mahdi@mahdialkhalaf.com"
+    enabled: true
+    production: false
+kaniko: true
+storage:
+  logs:
+    enabled: true
+  reports:
+    enabled: true
+  repository:
+    enabled: true
+secretStorage: vault
+vault:
+  aws:
+    autoCreate: true
+    iamUserName: jx
+webhook: prow
+autoUpdate:
+  enabled: true
+  schedule: "0 12 */5 * *"
