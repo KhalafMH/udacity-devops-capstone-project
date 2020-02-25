@@ -50,8 +50,10 @@ pipeline {
         }
         stage("List cluster pods") {
             steps {
-                def context = "${env.contextPrefix}/${env.clusterName}"
-                sh "kubectl --context $context get pods --all-namespaces"
+                script {
+                    def context = "${env.contextPrefix}/${env.clusterName}"
+                    sh "kubectl --context $context get pods --all-namespaces"
+                }
             }
         }
     }
