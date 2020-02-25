@@ -29,9 +29,9 @@ pipeline {
         }
         stage("Push Docker Image") {
             steps {
-                withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
-                    sh ecrLogin()
-                    script {
+                script {
+                    withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
+                        sh ecrLogin()
                         for (def tag : tags) {
                             docker.push(tag)
                         }
