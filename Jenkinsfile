@@ -30,10 +30,10 @@ pipeline {
         stage("Push Docker Image") {
             steps {
                 withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
-                    sh ecrLogin()
+                    sh script: ecrLogin(), label: "docker login"
                     script {
                         for (def tag : tags) {
-                            sh "docker push $tag"
+                            sh script: "docker push $tag", label: "Push docker image: $tag"
                         }
                     }
                 }
