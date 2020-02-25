@@ -20,7 +20,7 @@ pipeline {
                     if ("$BRANCH_NAME" == "master")
                         tags = ["${env.prefix}/$repoName:latest", "${env.prefix}/$repoName:${env.CHANGE_ID}"]
                     else
-                        tags = ["${env.prefix}/$repoName:${env.BRANCH_NAME}-SNAPSHOT"]
+                        tags = ["${env.prefix}/$repoName:${env.BRANCH_NAME}-${env.CHANGE_ID}"]
                     for (def tag : tags) {
                         docker.build(tag)
                     }
