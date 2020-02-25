@@ -50,9 +50,11 @@ pipeline {
         }
         stage("List cluster pods") {
             steps {
-                script {
-                    def context = "${env.contextPrefix}/${env.clusterName}"
-                    sh "kubectl --context $context get pods --all-namespaces"
+                withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
+                    script {
+                        def context = "${env.contextPrefix}/${env.clusterName}"
+                        sh "kubectl --context $context get pods --all-namespaces"
+                    }
                 }
             }
         }
