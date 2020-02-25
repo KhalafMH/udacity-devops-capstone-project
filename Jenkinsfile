@@ -16,10 +16,11 @@ pipeline {
         stage("Build Docker Image") {
             steps {
                 script {
+                    def repoName = env.JOB_NAME.split("/")[0]
                     if ("$BRANCH_NAME" == "master")
-                        tags = ["${env.prefix}/${env.JOB_NAME}:latest", "${env.prefix}/${env.JOB_NAME}:${env.CHANGE_ID}"]
+                        tags = ["${env.prefix}/$repoName:latest", "${env.prefix}/$repoName:${env.CHANGE_ID}"]
                     else
-                        tags = ["${env.prefix}/${env.JOB_NAME}:${env.BRANCH_NAME}-SNAPSHOT"]
+                        tags = ["${env.prefix}/$repoName:${env.BRANCH_NAME}-SNAPSHOT"]
                     for (def tag : tags) {
                         docker.build(tag)
                     }
