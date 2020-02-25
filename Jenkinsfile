@@ -20,8 +20,8 @@ pipeline {
                         tags = ["${env.prefix}/${env.JOB_NAME}:latest", "${env.prefix}/${env.JOB_NAME}:${env.CHANGE_ID}"]
                     else
                         tags = ["${env.prefix}/${env.JOB_NAME}:${env.BRANCH_NAME}-SNAPSHOT"]
-                    tags.forEach {
-                        docker.build(it)
+                    for (def tag : tags) {
+                        docker.build(tag)
                     }
                 }
             }
@@ -31,8 +31,8 @@ pipeline {
                 withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
                     sh ecrLogin()
                     script {
-                        tags.forEach {
-                            docker.push(it)
+                        for (def tag : tags) {
+                            docker.push(tag)
                         }
                     }
                 }
