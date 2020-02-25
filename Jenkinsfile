@@ -5,6 +5,8 @@ pipeline {
 
     environment {
         prefix = "402258575725.dkr.ecr.us-east-1.amazonaws.com"
+        clusterName = "capstone-project-cluster"
+        contextPrefix = "arn:aws:eks:us-east-1:402258575725:cluster"
     }
 
     stages {
@@ -37,6 +39,19 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+        stage("Prepare Kubernetes Context") {
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
+                    sh "aws eks update-kubeconfig --name ${env.clusterName}"
+                }
+            }
+        }
+        stage("List cluster pods") {
+            steps {
+                def context = "${env.contextPrefix}/${env.clusterName}"
+                sh "kubectl --context $context get pods --all-namespaces"
             }
         }
     }
