@@ -30,8 +30,10 @@ pipeline {
             steps {
                 withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
                     sh ecrLogin()
-                    tags.forEach {
-                        docker.push(it)
+                    script {
+                        tags.forEach {
+                            docker.push(it)
+                        }
                     }
                 }
             }
