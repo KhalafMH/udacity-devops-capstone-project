@@ -41,18 +41,12 @@ pipeline {
                 }
             }
         }
-        stage("Prepare Kubernetes Context") {
-            steps {
-                withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
-                    sh "aws eks update-kubeconfig --name ${env.clusterName}"
-                }
-            }
-        }
         stage("List cluster pods") {
             steps {
                 withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
                     script {
                         def context = "${env.contextPrefix}/${env.clusterName}"
+                        sh "aws eks update-kubeconfig --name ${env.clusterName}"
                         sh "kubectl --context $context get pods --all-namespaces"
                     }
                 }
