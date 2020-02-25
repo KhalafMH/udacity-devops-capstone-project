@@ -17,10 +17,10 @@ pipeline {
             steps {
                 script {
                     def repoName = env.JOB_NAME.split("/")[0]
-                    if ("$BRANCH_NAME" == "master")
-                        tags = ["${env.prefix}/$repoName:latest", "${env.prefix}/$repoName:${env.CHANGE_ID}"]
+                    if ("${env.BRANCH_NAME}" == "master")
+                        tags = ["${env.prefix}/$repoName:latest", "${env.prefix}/$repoName:${env.BUILD_ID}"]
                     else
-                        tags = ["${env.prefix}/$repoName:${env.BRANCH_NAME}-${env.CHANGE_ID}"]
+                        tags = ["${env.prefix}/$repoName:${env.BRANCH_NAME}-${env.BUILD_ID}"]
                     for (def tag : tags) {
                         docker.build(tag)
                     }
