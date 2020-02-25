@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capstone-app
+  labels:
+    app: capstone
+spec:
+  selector:
+    matchLabels:
+      app: capstone
+  replicas: 5
+  template:
+    spec:
+      containers:
+        - name: app
+          image: $IMAGE
+          ports:
+            - containerPort: 80
+              name: http
+          imagePullPolicy: Always
+          readinessProbe:
+            httpGet:
+              port: 80
+          livenessProbe:
+            httpGet:
+              port: 80
