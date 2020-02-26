@@ -2,6 +2,7 @@ tags = []
 deploymentTag = ""
 deploymentNamespace = ""
 
+//noinspection GroovyAssignabilityCheck
 pipeline {
     agent any
 
@@ -25,8 +26,7 @@ pipeline {
                         tags = ["${env.prefix}/$repoName:latest", "${env.prefix}/$repoName:${env.GIT_COMMIT}"]
                         deploymentTag = tags[1]
                         deploymentNamespace = "prod"
-                    }
-                    else {
+                    } else {
                         tags = ["${env.prefix}/$repoName:${env.BRANCH_NAME}-${env.GIT_COMMIT}"]
                         deploymentTag = tags[0]
                         deploymentNamespace = "dev"
@@ -54,13 +54,18 @@ pipeline {
                 withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
                     script {
                         def context = "${env.contextPrefix}/${env.clusterName}"
-                        def command = { manifest ->
-                            "sed -e 's/\$IMAGE/$deploymentTag/g' -e 's/\$VERSION/v2/g' deployment/$manifest" +
-                                    " | kubectl apply --context=$context -n $deploymentNamespace -f -"
+                        def kubeApply = { manifest ->
+                            "kubectl apply --context=$context -n $deploymentNamespace -f $manifest"
+                        }
+                        def replace = { input, output ->
+                            def content = new File(input).text.replace('$IMAGE', deploymentTag)
+                            new File(output).write(content)
                         }
                         sh script: "aws eks update-kubeconfig --name ${env.clusterName}", label: "Update kubeconfig"
-                        sh command("app.yaml")
-                        sh command("service.yaml")
+                        replace("deployment/app.yaml", "/tmp/app.yaml")
+                        replace("deployment/service.yaml", "/tmp/service.yaml")
+                        sh script: kubeApply("/tmp/app.yaml"), label: "Apply app.yaml"
+                        sh script: kubeApply("/tmp/service.yaml"), label: "Apply service.yaml"
                     }
                 }
             }
