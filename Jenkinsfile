@@ -59,7 +59,7 @@ pipeline {
                         }
                         def replace = { input, output ->
                             def content = readFile(input).replace('$IMAGE', deploymentTag)
-                            writeFile(output, content)
+                            writeFile file: output, text: content
                         }
                         sh script: "aws eks update-kubeconfig --name ${env.clusterName}", label: "Update kubeconfig"
                         replace("deployment/app.yaml", "/tmp/app.yaml")
