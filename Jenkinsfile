@@ -58,8 +58,8 @@ pipeline {
                             "kubectl apply --context=$context -n $deploymentNamespace -f $manifest"
                         }
                         def replace = { input, output ->
-                            def content = new File(input).text.replace('$IMAGE', deploymentTag)
-                            new File(output).write(content)
+                            def content = readFile(input).replace('$IMAGE', deploymentTag)
+                            writeFile(output, content)
                         }
                         sh script: "aws eks update-kubeconfig --name ${env.clusterName}", label: "Update kubeconfig"
                         replace("deployment/app.yaml", "/tmp/app.yaml")
