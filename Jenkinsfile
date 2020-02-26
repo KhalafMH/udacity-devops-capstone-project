@@ -1,4 +1,6 @@
 tags = []
+deploymentTag = ""
+deploymentNamespace = ""
 
 pipeline {
     agent any
@@ -19,10 +21,16 @@ pipeline {
             steps {
                 script {
                     def repoName = env.JOB_NAME.split("/")[0]
-                    if ("${env.BRANCH_NAME}" == "master")
+                    if ("${env.BRANCH_NAME}" == "master") {
                         tags = ["${env.prefix}/$repoName:latest", "${env.prefix}/$repoName:${env.GIT_COMMIT}"]
-                    else
+                        deploymentTag = tags[1]
+                        deploymentNamespace = "prod"
+                    }
+                    else {
                         tags = ["${env.prefix}/$repoName:${env.BRANCH_NAME}-${env.GIT_COMMIT}"]
+                        deploymentTag = tags[0]
+                        deploymentNamespace = "dev"
+                    }
                     for (def tag : tags) {
                         docker.build(tag)
                     }
@@ -41,13 +49,18 @@ pipeline {
                 }
             }
         }
-        stage("List cluster pods") {
+        stage("Deploy New Version") {
             steps {
                 withAWS(region: 'us-east-1', credentials: 'aws-jenkins') {
                     script {
                         def context = "${env.contextPrefix}/${env.clusterName}"
-                        sh "aws eks update-kubeconfig --name ${env.clusterName}"
-                        sh "kubectl --context $context get pods --all-namespaces"
+                        def command = { manifest ->
+                            "sed -e 's/\$IMAGE/$deploymentTag/g' -e 's/\$VERSION/v2/g' deployment/$manifest" +
+                                    " | kubectl apply --context=$context -n $deploymentNamespace -f -"
+                        }
+                        sh script: "aws eks update-kubeconfig --name ${env.clusterName}", label: "Update kubeconfig"
+                        sh command("app.yaml")
+                        sh command("service.yaml")
                     }
                 }
             }
